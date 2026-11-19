@@ -293,6 +293,16 @@ def low_earner_width(last_rate, last_players):
     return min(1.0 / math.sqrt(max(earners, 1.0)), 1.25)
 
 
+def spread_from_variances(*variances):
+    """Total spread from independent variance contributions.
+
+    Every sigma in the forecast is a quadrature sum of independent terms
+    (diffusion, fit variance, low-earner width, ...); keeping the
+    combination in one place means the call sites just name their terms.
+    """
+    return math.sqrt(sum(variances))
+
+
 # --- the forecast ------------------------------------------------------------
 
 def forecast_case(case):
@@ -444,7 +454,7 @@ def forecast_case(case):
                 med += SLOPE_DAMPING * pooled_slope * SINGLE_POINT_SLOPE_SHARE * (
                     x_target - x_last)
             medians[i] = med
-            sigmas[i] = math.sqrt(diffusion ** 2 + low ** 2 + 0.10 ** 2)
+            sigmas[i] = spread_from_variances(diffusion ** 2, low ** 2, 0.10 ** 2)
         elif fit is not None:
             b_shrunk = shrunk_slope(fit)
             x_last = x_of(snapshots[obs[-1][0]]["last_time"], release)
@@ -459,11 +469,11 @@ def forecast_case(case):
             var_mean = fit["s"] ** 2 * (
                 1.0 / fit["n"] + (x_target - fit["xbar"]) ** 2 / fit["sxx"])
             medians[i] = med
-            sigmas[i] = math.sqrt(diffusion ** 2 + var_mean + low ** 2)
+            sigmas[i] = spread_from_variances(diffusion ** 2, var_mean, low ** 2)
         else:
             # Several observations but no fit (a single distinct x).
             medians[i] = logit_pct(last_rate)
-            sigmas[i] = math.sqrt(diffusion ** 2 + low ** 2 + 0.10 ** 2)
+            sigmas[i] = spread_from_variances(diffusion ** 2, low ** 2, 0.10 ** 2)
 
         if frozen and not pinned[i]:
             medians[i] += FROZEN_SHIFT
